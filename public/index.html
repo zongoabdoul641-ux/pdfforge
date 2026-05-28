@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PDFforge — Convertisseur PDF</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+
+  <style>
+    /* ─── Tokens ─────────────────────────────────────────────────────────── */
+    :root {
+      --ink:        #0d0d0d;
+      --paper:      #f5f0e8;
+      --cream:      #faf7f2;
+      --rust:       #c94f1e;
+      --rust-light: #e8623a;
+      --rust-pale:  #fde8e0;
+      --stone:      #8c8275;
+      --border:     #d9d1c4;
+      --white:      #ffffff;
+      --green:      #1e7c4f;
+      --green-pale: #e0f5ec;
+      --red:        #c41e1e;
+      --red-pale:   #fde0e0;
+    }
+
+    /* ─── Reset ──────────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ─── Base ───────────────────────────────────────────────────────────── */
+    body {
+      background: var(--cream);
+      color: var(--ink);
+      font-family: 'DM Sans', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ─── Nav ────────────────────────────────────────────────────────────── */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 48px;
+      height: 64px;
+      background: rgba(245, 240, 232, 0.88);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    .logo {
+      font-family: 'Syne', sans-serif;
+      font-weight: 800;
+      font-size: 22px;
+      letter-spacing: -0.5px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .logo span { color: var(--rust); }
+    .nav-links { display: flex; gap: 32px; list-style: none; }
+    .nav-links a {
+      text-decoration: none;
+      color: var(--stone);
+      font-size: 14px;
+      font-weight: 500;
+      transition: color .2s;
+    }
+    .nav-links a:hover { color: var(--ink); }
+
+    /* ─── Hero ───────────────────────────────────────────────────────────── */
+    .hero {
+      position: relative;
+      z-index: 1;
+      padding: 72px 48px 40px;
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--rust-pale);
+      color: var(--rust);
+      font-size: 12px;
+      font-weight: 500;
+      padding: 4px 12px;
+      border-radius: 100px;
+      margin-bottom: 20px;
+      animation: fadeDown .5s ease both;
+    }
+    .hero-badge::before { content: '●'; font-size: 8px; }
+    h1 {
+      font-family: 'Syne', sans-serif;
+      font-size: clamp(36px, 5.5vw, 68px);
+      font-weight: 800;
+      line-height: 1.05;
+      letter-spacing: -2px;
+      max-width: 680px;
+      animation: fadeDown .6s .1s ease both;
+    }
+    h1 em { color: var(--rust); font-style: normal; }
+    .hero-sub {
+      margin-top: 18px;
+      font-size: 17px;
+      color: var(--stone);
+      max-width: 460px;
+      line-height: 1.65;
+      animation: fadeDown .6s .2s ease both;
+    }
+
+    /* ─── Tabs ───────────────────────────────────────────────────────────── */
+    .tabs-wrap {
+      position: relative;
+      z-index: 1;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 48px 80px;
+    }
+    .tabs {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 28px;
+      animation: fadeDown .6s .3s ease both;
+    }
+    .tab-btn {
+      background: var(--white);
+      border: 1.5px solid var(--border);
+      border-radius: 100px;
+      padding: 9px 18px;
+      font-size: 13px;
+      font-weight: 500;
+      font-family: 'DM Sans', sans-serif;
+      color: var(--stone);
+      cursor: pointer;
+      transition: all .2s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .tab-btn:hover         { border-color: var(--rust); color: var(--rust); }
+    .tab-btn.active        { background: var(--rust); border-color: var(--rust); color: var(--white); }
+
+    /* ─── Card ───────────────────────────────────────────────────────────── */
+    .card {
+      background: var(--white);
+      border: 1.5px solid var(--border);
+      border-radius: 20px;
+      box-shadow: 0 4px 24px rgba(13, 13, 13, .08);
+      overflow: hidden;
+      animation: fadeUp .6s .4s ease both;
+    }
+
+    /* ─── Drop zone ──────────────────────────────────────────────────────── */
+    .drop-zone {
+      padding: 56px 48px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      border-bottom: 1.5px solid var(--border);
+      cursor: pointer;
+      transition: background .2s;
+      min-height: 280px;
+    }
+    .drop-zone:hover,
+    .drop-zone.over      { background: var(--rust-pale); }
+    .drop-icon {
+      width: 68px;
+      height: 68px;
+      background: var(--rust-pale);
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      margin-bottom: 18px;
+      transition: transform .2s;
+    }
+    .drop-zone.over .drop-icon { transform: scale(1.1); }
+    .drop-title  { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+    .drop-sub    { font-size: 14px; color: var(--stone); margin-bottom: 22px; }
+    .btn-browse  {
+      background: var(--ink);
+      color: var(--white);
+      border: none;
+      border-radius: 10px;
+      padding: 12px 26px;
+      font-size: 14px;
+      font-weight: 500;
+      font-family: 'DM Sans', sans-serif;
+      cursor: pointer;
+      transition: background .2s, transform .15s;
+    }
+    .btn-browse:hover  { background: var(--rust); transform: translateY(-1px); }
+    .drop-formats      { margin-top: 14px; font-size: 12px; color: var(--stone); }
+
+    /* ─── File list ──────────────────────────────────────────────────────── */
+    .file-list { display: none; padding: 28px 48px; border-bottom: 1.5px solid var(--border); }
+    .file-list.visible { display: block; }
+    .file-list-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--stone);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 14px;
+    }
+    .file-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 12px 14px;
+      background: var(--cream);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      margin-bottom: 8px;
+      animation: slideIn .3s ease both;
+    }
+    .file-thumb {
+      width: 34px;
+      height: 34px;
+      background: var(--rust-pale);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      flex-shrink: 0;
+    }
+    .file-info  { flex: 1; min-width: 0; }
+    .file-name  { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .file-size  { font-size: 12px; color: var(--stone); margin-top: 2px; }
+    .file-remove {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--stone);
+      font-size: 18px;
+      line-height: 1;
+      padding: 4px;
+      border-radius: 6px;
+      transition: color .2s, background .2s;
+    }
+    .file-remove:hover { color: var(--rust); background: var(--rust-pale); }
+
+    /* ─── Options ────────────────────────────────────────────────────────── */
+    .options-row {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+      padding: 24px 48px;
+    }
+    .opt-label { font-size: 13px; font-weight: 500; color: var(--stone); margin-bottom: 6px; }
+    select {
+      appearance: none;
+      background: var(--cream) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%238c8275' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E") right 12px center no-repeat;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 36px 10px 13px;
+      font-size: 13px;
+      font-family: 'DM Sans', sans-serif;
+      color: var(--ink);
+      cursor: pointer;
+      min-width: 150px;
+      transition: border-color .2s;
+    }
+    select:focus { outline: none; border-color: var(--rust); }
+    .quality-options { display: flex; gap: 6px; }
+    .q-btn {
+      background: var(--cream);
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      padding: 7px 13px;
+      font-size: 12px;
+      font-weight: 500;
+      font-family: 'DM Sans', sans-serif;
+      color: var(--stone);
+      cursor: pointer;
+      transition: all .2s;
+    }
+    .q-btn.active { background: var(--rust); border-color: var(--rust); color: var(--white); }
+    .convert-btn {
+      background: var(--rust);
+      color: var(--white);
+      border: none;
+      border-radius: 12px;
+      padding: 13px 30px;
+      font-size: 15px;
+      font-weight: 600;
+      font-family: 'DM Sans', sans-serif;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: background .2s, transform .15s, box-shadow .2s;
+      box-shadow: 0 4px 16px rgba(201, 79, 30, .25);
+    }
+    .convert-btn:hover:not(:disabled) {
+      background: var(--rust-light);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(201, 79, 30, .35);
+    }
+    .convert-btn:disabled { background: var(--border); color: var(--stone); cursor: not-allowed; box-shadow: none; }
+
+    /* ─── Progress ───────────────────────────────────────────────────────── */
+    .progress-wrap { display: none; padding: 28px 48px; border-top: 1.5px solid var(--border); }
+    .progress-wrap.visible { display: block; }
+    .progress-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--stone);
+      margin-bottom: 10px;
+    }
+    .progress-bar-bg  { background: var(--cream); border: 1px solid var(--border); border-radius: 100px; height: 6px; overflow: hidden; }
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--rust), var(--rust-light));
+      border-radius: 100px;
+      width: 0%;
+      transition: width .4s ease;
+    }
+
+    /* ─── Result ─────────────────────────────────────────────────────────── */
+    .result-wrap { display: none; padding: 28px 48px; border-top: 1.5px solid var(--border); }
+    .result-wrap.visible { display: block; }
+    .result-success {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      background: var(--green-pale);
+      border: 1px solid #a8d5bc;
+      border-radius: 14px;
+      padding: 20px 24px;
+      margin-bottom: 20px;
+    }
+    .result-error {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      background: var(--red-pale);
+      border: 1px solid #f5b8b8;
+      border-radius: 14px;
+      padding: 20px 24px;
+      margin-bottom: 20px;
+    }
+    .result-icon-big { font-size: 32px; flex-shrink: 0; animation: pop .4s ease; }
+    .result-msg      { font-family: 'Syne', sans-serif; font-size: 17px; font-weight: 700; }
+    .result-sub      { font-size: 13px; color: var(--stone); margin-top: 3px; }
+    .result-actions  { display: flex; gap: 10px; flex-wrap: wrap; }
+    .btn-download {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--ink);
+      color: var(--white);
+      text-decoration: none;
+      border-radius: 10px;
+      padding: 12px 24px;
+      font-size: 14px;
+      font-weight: 500;
+      font-family: 'DM Sans', sans-serif;
+      border: none;
+      cursor: pointer;
+      transition: background .2s;
+    }
+    .btn-download:hover { background: var(--rust); }
+    .btn-reset {
+      background: none;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      padding: 11px 22px;
+      font-size: 14px;
+      font-weight: 500;
+      font-family: 'DM Sans', sans-serif;
+      color: var(--stone);
+      cursor: pointer;
+      transition: all .2s;
+    }
+    .btn-reset:hover { border-color: var(--rust); color: var(--rust); }
+
+    /* ─── Features ───────────────────────────────────────────────────────── */
+    .features {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 48px 72px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 14px;
+      position: relative;
+      z-index: 1;
+    }
+    .feat {
+      background: var(--white);
+      border: 1.5px solid var(--border);
+      border-radius: 16px;
+      padding: 22px;
+      transition: box-shadow .2s, transform .2s;
+    }
+    .feat:hover    { box-shadow: 0 4px 24px rgba(13, 13, 13, .08); transform: translateY(-2px); }
+    .feat-icon     { font-size: 22px; margin-bottom: 10px; }
+    .feat-title    { font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; margin-bottom: 5px; }
+    .feat-desc     { font-size: 13px; color: var(--stone); line-height: 1.6; }
+
+    /* ─── Footer ─────────────────────────────────────────────────────────── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 22px 48px;
+      text-align: center;
+      font-size: 13px;
+      color: var(--stone);
+      position: relative;
+      z-index: 1;
+    }
+    footer strong { color: var(--ink); font-weight: 600; }
+
+    /* ─── Animations ─────────────────────────────────────────────────────── */
+    @keyframes fadeDown { from { opacity: 0; transform: translateY(-14px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes fadeUp   { from { opacity: 0; transform: translateY(18px);  } to { opacity: 1; transform: translateY(0); } }
+    @keyframes slideIn  { from { opacity: 0; transform: translateX(-8px);  } to { opacity: 1; transform: translateX(0); } }
+    @keyframes pop      { 0% { transform: scale(.6); opacity: 0; } 70% { transform: scale(1.15); } 100% { transform: scale(1); opacity: 1; } }
+    @keyframes spin     { to { transform: rotate(360deg); } }
+
+    /* ─── Spinner ────────────────────────────────────────────────────────── */
+    .spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255, 255, 255, .35);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+
+    /* ─── Responsive ─────────────────────────────────────────────────────── */
+    @media (max-width: 700px) {
+      nav                                          { padding: 0 16px; }
+      .nav-links                                   { display: none; }
+      .hero, .tabs-wrap                            { padding-left: 16px; padding-right: 16px; }
+      .drop-zone                                   { padding: 36px 16px; }
+      .file-list, .options-row,
+      .progress-wrap, .result-wrap                 { padding-left: 16px; padding-right: 16px; }
+      .features                                    { padding: 0 16px 60px; }
+      footer                                       { padding: 20px 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ─── Nav ──────────────────────────────────────────────────────────────── -->
+<nav>
+  <div class="logo">PDF<span>forge</span></div>
+  <ul class="nav-links">
+    <li><a href="#">Accueil</a></li>
+    <li><a href="#">Outils</a></li>
+    <li><a href="#">Tarifs</a></li>
+  </ul>
+</nav>
+
+<!-- ─── Hero ─────────────────────────────────────────────────────────────── -->
+<section class="hero">
+  <div class="hero-badge">Convertisseur en ligne · API réelle</div>
+  <h1>Convertissez vos fichiers<br/><em>en PDF</em>, facilement.</h1>
+  <p class="hero-sub">Word, Excel, images, texte — transformez n'importe quel fichier en PDF de qualité professionnelle.</p>
+</section>
+
+<!-- ─── App ──────────────────────────────────────────────────────────────── -->
+<div class="tabs-wrap">
+
+  <div class="tabs">
+    <button class="tab-btn active" onclick="setMode('to-pdf',this)">📄 Vers PDF</button>
+    <button class="tab-btn"        onclick="setMode('compress',this)">⚡ Compresser</button>
+    <button class="tab-btn"        onclick="setMode('merge',this)">📎 Fusionner</button>
+  </div>
+
+  <div class="card">
+
+    <!-- Drop zone -->
+    <div class="drop-zone" id="dropZone"
+         ondragover="onDragOver(event)" ondragleave="onDragLeave(event)"
+         ondrop="onDrop(event)" onclick="document.getElementById('fileInput').click()">
+      <div class="drop-icon" id="dropIcon">📂</div>
+      <p class="drop-title" id="dropTitle">Glissez vos fichiers ici</p>
+      <p class="drop-sub">ou cliquez pour parcourir</p>
+      <button class="btn-browse" onclick="event.stopPropagation(); document.getElementById('fileInput').click()">
+        Choisir les fichiers
+      </button>
+      <p class="drop-formats" id="dropFormats">Formats acceptés : DOCX, XLSX, TXT, JPG, PNG, PDF</p>
+      <input type="file" id="fileInput" multiple style="display:none" onchange="handleFiles(this.files)"/>
+    </div>
+
+    <!-- File list -->
+    <div class="file-list" id="fileList">
+      <p class="file-list-title">Fichiers sélectionnés</p>
+      <div id="fileItems"></div>
+    </div>
+
+    <!-- Options -->
+    <div class="options-row">
+      <div id="fmtGroup">
+        <p class="opt-label">Format de sortie</p>
+        <select id="outputFormat">
+          <option value="pdf">PDF (.pdf)</option>
+        </select>
+      </div>
+      <div>
+        <p class="opt-label">Qualité</p>
+        <div class="quality-options">
+          <button class="q-btn"        onclick="setQuality('rapide',this)">Rapide</button>
+          <button class="q-btn active" onclick="setQuality('standard',this)">Standard</button>
+          <button class="q-btn"        onclick="setQuality('haute',this)">Haute</button>
+        </div>
+      </div>
+      <button class="convert-btn" id="convertBtn" onclick="startConversion()" disabled>
+        <span id="btnIcon">⚡</span>
+        <span id="btnLabel">Convertir</span>
+      </button>
+    </div>
+
+    <!-- Progress -->
+    <div class="progress-wrap" id="progressWrap">
+      <div class="progress-label">
+        <span id="progressText">Envoi du fichier…</span>
+        <span id="progressPct">0%</span>
+      </div>
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill" id="progressFill"></div>
+      </div>
+    </div>
+
+    <!-- Result -->
+    <div class="result-wrap" id="resultWrap"></div>
+
+  </div>
+</div>
+
+<!-- ─── Features ─────────────────────────────────────────────────────────── -->
+<div class="features">
+  <div class="feat">
+    <div class="feat-icon">🔐</div>
+    <p class="feat-title">100% Sécurisé</p>
+    <p class="feat-desc">Vos fichiers sont traités côté serveur et jamais stockés.</p>
+  </div>
+  <div class="feat">
+    <div class="feat-icon">⚡</div>
+    <p class="feat-title">Ultra rapide</p>
+    <p class="feat-desc">Traitement Python haute performance — résultats en secondes.</p>
+  </div>
+  <div class="feat">
+    <div class="feat-icon">🎨</div>
+    <p class="feat-title">Qualité préservée</p>
+    <p class="feat-desc">Mise en page, polices et images fidèlement conservées.</p>
+  </div>
+  <div class="feat">
+    <div class="feat-icon">📱</div>
+    <p class="feat-title">Tout appareil</p>
+    <p class="feat-desc">Utilisable depuis ordinateur, tablette ou téléphone.</p>
+  </div>
+</div>
+
+<!-- ─── Footer ────────────
